@@ -63,7 +63,7 @@ def clone_repo(cfg: dict):
     try:
         git.Repo.clone_from(repo_url, st.session_state.settings_repo_name)
         logger.info("cloned")
-    except git.exc.GitCommonError as e:
+    except git.exc.GitCommandError  as e:
         logger.error(f"cloned failure {e.stderr}")
         st.error('Git clone error')
         st.stop()
@@ -76,7 +76,7 @@ def pull_repo():
     try:
         res = git.Repo(st.session_state.settings_repo_name).git.pull()
         logger.info(f"pulled  memorization repo : {res}")
-    except git.exc.GitCommonError as e:
+    except git.exc.GitCommandError  as e:
         st.error('Git pull error')
         st.stop()
     except Exception as e:
@@ -104,6 +104,10 @@ def init_state():
         st.session_state.show_answer = False
     if 'dir_path' not in st.session_state:
         st.session_state.dir_path = None
+    if 'settings_repo_url' not in st.session_state:
+        st.session_state.settings_repo_url = ''
+    if 'settings_repo_name' not in st.session_state:
+        st.session_state.settings_repo_name = ''
     if 'initialized' not in st.session_state:
         st.session_state.initialized = False
     
