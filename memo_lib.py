@@ -1,10 +1,8 @@
 from loguru import logger
 import re
-import sys
 import json
 
-logger.remove()
-logger.add(sys.stdout, format="{level} {message}", level="INFO")
+# Logger configuration is handled by the main application (memo_streamlit.py).
 
 def new_tab_dict(title=""):
     return {

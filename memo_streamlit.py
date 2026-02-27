@@ -11,7 +11,8 @@ from loguru import logger
 from memo_lib import read_md
 
 logger.remove()
-logger.add(sys.stdout, format="{level} {message}", level="INFO")
+logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} {level} {message}", level="INFO")
+
 st.set_page_config(page_title="Memorization Practice", layout="centered")
 st.title("Memorization Practice")
 REPO_DIR = 'memorization'
@@ -108,9 +109,9 @@ def init_state():
 
 def update_selected_md():
     selected_md = st.session_state.selected_md
-    file_path = os.path.join(st.session_state.dir_path, selected_md)
 
     try:
+        file_path = os.path.join(st.session_state.dir_path, selected_md)
         docs = read_md(file_path)
         logger.info(f"loaded {selected_md}")
     except Exception as e:
