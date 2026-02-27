@@ -15,7 +15,6 @@ logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} {level} {message}", le
 
 st.set_page_config(page_title="Memorization Practice", layout="centered")
 st.title("Memorization Practice")
-REPO_DIR = 'memorization'
 CONFIG_PATH = Path.cwd() / 'settings.json'
 
 
@@ -29,6 +28,15 @@ def load_config():
         pass
     return {}
 
+def set_session_state_with_config(cfg):
+    st.session_state.settings_repo_url = cfg.get('repo_url', '')
+    st.session_state.settings_repo_name = ''
+    if repo_url := st.session_state.settings_repo_url:
+        if matched:= re.findall(r'/([\w\-\.]+)\.git$', repo_url):
+            st.session_state.settings_repo_name = matched[0]
+    st.session_state.settings_query_columns = split_cols(cfg.get('query_columns', ''))
+    st.session_state.settings_answer_columns = split_cols(cfg.get('answer_columns', ''))
+
 
 def save_config(cfg: dict):
     try:
@@ -36,33 +44,8 @@ def save_config(cfg: dict):
     except Exception as e:
         logger.error(f'Failed to save config: {e}')
 
-def init_source_data(cfg: dict):
-    if not os.path.isdir(REPO_DIR):
-        repo_url = cfg.get('repo_url', '')
-        try:
-            git.Repo.clone_from(repo_url, REPO_DIR)
-            logger.info("cloned")
-        except git.exc.GitCommonError as e:
-            logger.error(f"cloned failure {e.stderr}")
-            st.error('Git clone error')
-            st.stop()
-        except Exception as e:
-            logger.error(f"Unexpected Error {e}")
-            st.error('Unexpected Error while cloning')
-            st.stop()
-    else:
-        try:
-            res = git.Repo(REPO_DIR).git.pull()
-            logger.info(f"pulled  memorization repo : {res}")
-        except git.exc.GitCommonError as e:
-            st.error('Git pull error')
-            st.stop()
-        except Exception as e:
-            logger.error('Unexpected Error while pulling')
-            st.stop()
-
-    # dir_path = st.text_input('Enter directory path:', value=st.session_state.selected_dir or 'D:\\Obsidian\\books\\')
-    dir_path = os.path.join(os.getcwd(), REPO_DIR)
+def load_md_files():
+    dir_path = os.path.join(os.getcwd(), st.session_state.settings_repo_name)
 
     # Get all md files in the directory
     md_files = [f for f in os.listdir(dir_path) if f.endswith(('.md', '.markdown'))]
@@ -71,17 +54,35 @@ def init_source_data(cfg: dict):
         st.stop()
     st.session_state.md_files = md_files
     st.session_state.dir_path = dir_path
-    st.session_state.initialized = True
 
-    st.session_state.settings_repo_url = split_cols(cfg.get('repo_url', ''))
-    st.session_state.settings_query_columns = split_cols(cfg.get('query_columns', ''))
-    st.session_state.settings_answer_columns = split_cols(cfg.get('answer_columns', ''))
-
+def clone_repo(cfg: dict):
+    repo_url = cfg.get('repo_url', '')
+    if not repo_url:
+        st.error('Repo url is not set. Please go settings first')
+        st.stop()
+    try:
+        git.Repo.clone_from(repo_url, st.session_state.settings_repo_name)
+        logger.info("cloned")
+    except git.exc.GitCommonError as e:
+        logger.error(f"cloned failure {e.stderr}")
+        st.error('Git clone error')
+        st.stop()
+    except Exception as e:
+        logger.error(f"Unexpected Error {e}")
+        st.error('Unexpected Error while cloning')
+        st.stop()
     
-# def refresh_source_data():
-#     git.Repo(REPO_DIR).git.pull()
-#     logger.info("pulled  memorization repo ")
-
+def pull_repo():
+    try:
+        res = git.Repo(st.session_state.settings_repo_name).git.pull()
+        logger.info(f"pulled  memorization repo : {res}")
+    except git.exc.GitCommonError as e:
+        st.error('Git pull error')
+        st.stop()
+    except Exception as e:
+        logger.error('Unexpected Error while pulling')
+        st.stop()
+    
 def init_state():
     if 'md_files' not in st.session_state:
         st.session_state.md_files = []
@@ -143,11 +144,9 @@ def update_selected_table():
     else:
         logger.warning(f"Empty contents in table : {selected}")
 
-
 def reorder_contents():
     contents = st.session_state.contents
     return [c for _, c in sorted(zip(st.session_state.incorrect_counts, contents), key=lambda x: x[0], reverse=True)]
-
 
 def get_column_list(docs):
     col_cnt = defaultdict(int)
@@ -185,30 +184,36 @@ def open_settings():
                        placeholder='comma seperated list')
     c1, c2, _ = st.columns([2, 2, 6])
     if c1.button('Save', width="stretch"):
-        st.session_state.settings_repo_url = repo_url
-        st.session_state.settings_query_columns = split_cols(qc)
-        st.session_state.settings_answer_columns = split_cols(ac)
+        set_session_state_with_config(cfg)
         save_config({'repo_url': repo_url, 'query_columns': qc, 'answer_columns': ac})
         st.success('Settings saved')
+        st.session_state.initialized = False
         st.rerun()
     if c2.button('Cancel', width="stretch"):
         st.rerun()
 
 init_state()
-if not st.session_state.initialized:
-    # load saved config and set defaults for column selection
+if st.session_state.initialized == False:
     if cfg := load_config():
-        init_source_data(cfg)
+        set_session_state_with_config(cfg)
     else:
         st.warning("Configure Settings please")
 
+    if not os.path.isdir(st.session_state.settings_repo_name):
+        clone_repo(cfg)
+    
+    load_md_files()
+    st.session_state.initialized = True
 
 with st.sidebar:
     # Header with Settings button
-    cols = st.columns([4, 1])
+    cols = st.columns([2.8, 1, 1])
     with cols[0]:
         st.header('Load Questions')
     with cols[1]:
+        if st.button('🔃', key='reload_repo', help='Reload repo'):
+            pull_repo()
+    with cols[2]:
         if st.button('⚙️', key='open_settings', help='Settings'):
             open_settings()
 
@@ -223,7 +228,6 @@ with st.sidebar:
 
     # Load the file and get table list
     if docs := st.session_state.docs:
-        # st.divider()
         column_list = get_column_list(docs)
         # preselect from saved settings if available (case-sensitive)
         sel_q = st.session_state.get('settings_query_columns', [])
