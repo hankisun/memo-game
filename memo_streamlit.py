@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from collections import defaultdict
 from loguru import logger
-from memo_lib import read_md
+from memo_lib import read_md, read_json
 
 logger.remove()
 logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} {level} {message}", level="INFO")
@@ -16,6 +16,7 @@ logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} {level} {message}", le
 st.set_page_config(page_title="Memorization Practice", layout="centered")
 st.title("Memorization Practice")
 CONFIG_PATH = Path.cwd() / 'settings.json'
+SUPPORTED_FILE_EXT = ('.md', '.markdown', '.json')
 
 
 def load_config():
@@ -44,15 +45,15 @@ def save_config(cfg: dict):
     except Exception as e:
         logger.error(f'Failed to save config: {e}')
 
-def load_md_files():
+def load_files():
     dir_path = os.path.join(os.getcwd(), st.session_state.settings_repo_name)
 
-    # Get all md files in the directory
-    md_files = [f for f in os.listdir(dir_path) if f.endswith(('.md', '.markdown'))]
-    if len(md_files) == 0:
+    # Get all md or json files in the directory
+    files = [f for f in os.listdir(dir_path) if f.endswith(SUPPORTED_FILE_EXT)]
+    if len(files) == 0:
         st.error('No md files exist')
         st.stop()
-    st.session_state.md_files = md_files
+    st.session_state.files = files
     st.session_state.dir_path = dir_path
 
 def clone_repo(cfg: dict):
@@ -85,7 +86,7 @@ def pull_repo():
     
 def init_state():
     if 'md_files' not in st.session_state:
-        st.session_state.md_files = []
+        st.session_state.files = []
     if 'docs' not in st.session_state:
         st.session_state.docs = []
     if 'contents' not in st.session_state:
@@ -112,13 +113,18 @@ def init_state():
         st.session_state.initialized = False
     
 
-def update_selected_md():
-    selected_md = st.session_state.selected_md
+def update_selected_file():
+    selected_file = st.session_state.selected_file
 
     try:
-        file_path = os.path.join(st.session_state.dir_path, selected_md)
-        docs = read_md(file_path)
-        logger.info(f"loaded {selected_md}")
+        file_path = os.path.join(st.session_state.dir_path, selected_file)
+        if selected_file.endswith((".md", ".markdown")):
+            docs = read_md(file_path)
+        elif selected_file.endswith(".json"):
+            docs = read_json(file_path)
+        else:
+            raise('Unsupported File Format')
+        logger.info(f"loaded {selected_file}")
     except Exception as e:
         st.error(f'Failed to read file: {e}')
         docs = []
@@ -177,7 +183,7 @@ def split_cols(s):
 
 @st.dialog("Settings")
 def open_settings():
-    logger.info("OPen Settings")
+    logger.info("Open Settings")
     cfg = load_config()
     repo_url = st.text_input('Repo Url', value=cfg.get('repo_url', ''))
     qc = st.text_input('Query columns', 
@@ -206,7 +212,7 @@ if st.session_state.initialized == False:
     if not os.path.isdir(st.session_state.settings_repo_name):
         clone_repo(cfg)
     
-    load_md_files()
+    load_files()
     st.session_state.initialized = True
 
 with st.sidebar:
@@ -221,14 +227,14 @@ with st.sidebar:
         if st.button('⚙️', key='open_settings', help='Settings'):
             open_settings()
 
-    if md_files := st.session_state.md_files:
+    if files := st.session_state.files:
         # Step 2: Select markdown file
         selected_file = st.selectbox(
-            'Select markdown file:', 
-            md_files,
+            'Select a markdown or json file:', 
+            files,
             index=None,
-            key='selected_md',
-            on_change=update_selected_md)
+            key='selected_file',
+            on_change=update_selected_file)
 
     # Load the file and get table list
     if docs := st.session_state.docs:

@@ -69,3 +69,13 @@ def read_md(path):
     logger.debug(json.dumps(docs, ensure_ascii=False, indent=2))
     logger.info(f"{len(docs)} tables are loaded")
     return docs
+
+def read_json(path):
+    docs = []
+
+    try:
+        with open(path) as f:
+            docs = json.load(f)
+    except Exception as e:
+        logger.warning(f"Cannot load file - {path}")
+    return docs
