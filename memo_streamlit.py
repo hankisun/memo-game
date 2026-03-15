@@ -85,7 +85,7 @@ def pull_repo():
         st.stop()
     
 def init_state():
-    if 'md_files' not in st.session_state:
+    if 'files' not in st.session_state:
         st.session_state.files = []
     if 'docs' not in st.session_state:
         st.session_state.docs = []
@@ -93,6 +93,10 @@ def init_state():
         st.session_state.contents = []
     if 'selected_table' not in st.session_state:
         st.session_state.selected_table = None
+    if 'selected_file' not in st.session_state:
+        st.session_state.selected_file = None
+    if 'selected_file_index' not in st.session_state:
+        st.session_state.selected_file_index = None
     if 'idx' not in st.session_state:
         st.session_state.idx = 0
     if 'correct' not in st.session_state:
@@ -115,6 +119,7 @@ def init_state():
 
 def update_selected_file():
     selected_file = st.session_state.selected_file
+    st.session_state.selected_index = st.session_state.files.index(selected_file)
 
     try:
         file_path = os.path.join(st.session_state.dir_path, selected_file)
@@ -232,7 +237,7 @@ with st.sidebar:
         selected_file = st.selectbox(
             'Select a markdown or json file:', 
             files,
-            index=None,
+            index=st.session_state.selected_file_index,
             key='selected_file',
             on_change=update_selected_file)
 

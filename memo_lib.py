@@ -57,6 +57,8 @@ def read_md(path):
         while True:
             l = f.readline()
             if not l:
+                if tab_dict["contents"]:
+                    docs.append(tab_dict)
                 break
             l = l.strip()
             if title := check_doc_title(l):
